@@ -1,0 +1,99 @@
+const BaseAgent = require('./BaseAgent');
+
+class ManagerAgent extends BaseAgent {
+    constructor(privateKey, capabilities, config) {
+        super(privateKey, 'Manager', capabilities, config);
+    }
+
+    async createTask(description) {
+        const tx = this.taskManagementContract.methods.createTask(description);
+        const gas = await tx.estimateGas({from: this.account.address});
+        const result = await tx.send({from: this.account.address, gas});
+        console.log(`Task created: ${result.transactionHash}`);
+        return result;
+    }
+
+    async assignTask(taskId, agentAddresses) {
+        const tx = this.taskManagementContract.methods.assignTask(taskId, agentAddresses);
+        const gas = await tx.estimateGas({from: this.account.address});
+        const result = await tx.send({from: this.account.address, gas});
+        console.log(`Task assigned: ${result.transactionHash}`);
+        return result;
+    }
+}
+
+class DesignAgent extends BaseAgent {
+    constructor(privateKey, capabilities, config) {
+        super(privateKey, 'Designer', capabilities, config);
+    }
+
+    async designGame(taskId, gameDescription) {
+        // Implement game design logic here
+        console.log(`Designing game for task ${taskId}: ${gameDescription}`);
+        await this.updateTaskStatus(taskId, 1); // Update to InProgress
+        // Simulating design process
+        setTimeout(async () => {
+            await this.updateTaskStatus(taskId, 2); // Update to Completed
+            console.log(`Game design completed for task ${taskId}`);
+        }, 5000);
+    }
+}
+
+class DevAgent extends BaseAgent {
+    constructor(privateKey, capabilities, config) {
+        super(privateKey, 'Developer', capabilities, config);
+    }
+
+    async developGame(taskId, gameDesign) {
+        // Implement game development logic here
+        console.log(`Developing game for task ${taskId} based on design: ${gameDesign}`);
+        await this.updateTaskStatus(taskId, 1); // Update to InProgress
+        // Simulating development process
+        setTimeout(async () => {
+            await this.updateTaskStatus(taskId, 2); // Update to Completed
+            console.log(`Game development completed for task ${taskId}`);
+        }, 8000);
+    }
+}
+
+class TestAgent extends BaseAgent {
+    constructor(privateKey, capabilities, config) {
+        super(privateKey, 'Tester', capabilities, config);
+    }
+
+    async testGame(taskId, gameImplementation) {
+        // Implement game testing logic here
+        console.log(`Testing game for task ${taskId}: ${gameImplementation}`);
+        await this.updateTaskStatus(taskId, 1); // Update to InProgress
+        // Simulating testing process
+        setTimeout(async () => {
+            await this.updateTaskStatus(taskId, 2); // Update to Completed
+            console.log(`Game testing completed for task ${taskId}`);
+        }, 3000);
+    }
+}
+
+class MarketAgent extends BaseAgent {
+    constructor(privateKey, capabilities, config) {
+        super(privateKey, 'Marketer', capabilities, config);
+    }
+
+    async analyzeMarket(taskId, gameDetails) {
+        // Implement market analysis logic here
+        console.log(`Analyzing market for game in task ${taskId}: ${gameDetails}`);
+        await this.updateTaskStatus(taskId, 1); // Update to InProgress
+        // Simulating market analysis process
+        setTimeout(async () => {
+            await this.updateTaskStatus(taskId, 2); // Update to Completed
+            console.log(`Market analysis completed for task ${taskId}`);
+        }, 4000);
+    }
+}
+
+module.exports = {
+    ManagerAgent,
+    DesignAgent,
+    DevAgent,
+    TestAgent,
+    MarketAgent
+};
