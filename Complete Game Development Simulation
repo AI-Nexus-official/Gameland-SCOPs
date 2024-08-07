@@ -1,0 +1,102 @@
+const Web3 = require('web3');
+const AdvancedTeamFormationSystem = require('./AdvancedTeamFormationSystem');
+const KnowledgeManagementSystem = require('./KnowledgeManagementSystem');
+const GameDevelopmentSandbox = require('./GameDevelopmentSandbox');
+const { ManagerAgent, DesignAgent, DevAgent, TestAgent, MarketAgent } = require('./SpecializedAgents');
+const config = require('./config');
+
+async function simulateGameDevelopment(prompt) {
+    console.log("Starting game development simulation with prompt:", prompt);
+
+    // Initialize Web3 and connect to the blockchain
+    const web3 = new Web3(config.web3Provider);
+
+    // Initialize systems
+    const teamFormation = new AdvancedTeamFormationSystem(web3, config.contractAddresses.agentRegistration);
+    const knowledgeSystem = new KnowledgeManagementSystem(config.mongodbUri);
+    await knowledgeSystem.initialize();
+    const sandbox = new GameDevelopmentSandbox();
+
+    // Form a team
+    console.log("Forming a team...");
+    const team = await teamFormation.formTeam(prompt);
+    console.log("Formed team:", team.map(agent => agent.agentType));
+
+    // Initialize agents
+    const manager = new ManagerAgent(config.agentPrivateKeys.manager, ['project management'], { web3, ...config.contractAddresses });
+    const designer = new DesignAgent(config.agentPrivateKeys.designer, ['game design'], { web3, ...config.contractAddresses });
+    const developer = new DevAgent(config.agentPrivateKeys.developer, ['game development'], { web3, ...config.contractAddresses });
+    const tester = new TestAgent(config.agentPrivateKeys.tester, ['game testing'], { web3, ...config.contractAddresses });
+    const marketer = new MarketAgent(config.agentPrivateKeys.marketer, ['game marketing'], { web3, ...config.contractAddresses });
+
+    // Create a new game project
+    console.log("Creating a new game project...");
+    const projectId = await manager.createTask(prompt);
+    await manager.assignTask(projectId, team.map(agent => agent.agentAddress));
+
+    // Design phase
+    console.log("Starting design phase...");
+    await designer.designGame(projectId, prompt);
+    const designDoc = await knowledgeSystem.retrieveKnowledge('designs', { projectId });
+    console.log("Design document created:", designDoc);
+
+    // Development phase
+    console.log("Starting development phase...");
+    await developer.developGame(projectId, designDoc);
+    const gameId = sandbox.createGameInstance({ projectId, designDoc });
+    console.log("Game instance created in sandbox, ID:", gameId);
+
+    // Testing phase
+    console.log("Starting testing phase...");
+    await tester.testGame(projectId, gameId);
+    const testResults = sandbox.performAutomatedTesting(gameId);
+    console.log("Test results:", testResults);
+
+    // If tests failed, loop back to development
+    if (!testResults.passed) {
+        console.log("Tests failed. Looping back to development phase...");
+        await developer.developGame(projectId, { ...designDoc, testResults });
+        await tester.testGame(projectId, gameId);
+    }
+
+    // Market analysis
+    console.log("Performing market analysis...");
+    const marketAnalysis = await marketer.analyzeMarket(projectId, { gameId, testResults });
+    console.log("Market analysis:", marketAnalysis);
+
+    // Simulate the game
+    console.log("Running game simulation...");
+    const simulationResults = sandbox.runSimulation(gameId, { playerCount: 1000, gameDuration: '7d' });
+    console.log("Simulation results:", simulationResults);
+
+    // Store project results
+    await knowledgeSystem.storeKnowledge('projects', {
+        projectId,
+        team: team.map(agent => agent.agentType),
+        designDoc,
+        testResults,
+        marketAnalysis,
+        simulationResults
+    });
+
+    // Analyze trends
+    console.log("Analyzing game development trends...");
+    const trends = await knowledgeSystem.analyzeProjectTrends();
+    console.log("Current game development trends:", trends);
+
+    // Distribute rewards
+    console.log("Distributing rewards to team members...");
+    const rewardAmount = web3.utils.toWei('10', 'ether'); // 10 tokens per agent
+    await manager.distributeRewards(team.map(agent => agent.agentAddress), team.map(() => rewardAmount));
+
+    // Agents claim rewards
+    for (const agent of [designer, developer, tester, marketer]) {
+        await agent.claimReward();
+    }
+
+    console.log("Game development simulation completed successfully!");
+}
+
+// Run the simulation
+const gamePrompt = "Create a mobile RPG game with stunning graphics, an engaging storyline, and blockchain-based item ownership.";
+simulateGameDevelopment(gamePrompt).catch(console.error);
