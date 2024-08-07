@@ -18,7 +18,7 @@ This project implements a framework for decentralized game development using blo
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/gameland-scops.git
+   git clone https://github.com/AI-Nexus-official/gameland-scops.git
    ```
 
 2. Install dependencies:
