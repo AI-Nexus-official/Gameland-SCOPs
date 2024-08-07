@@ -1,0 +1,127 @@
+const natural = require('natural');
+const { AgentRegistrationABI } = require('./abis');
+const Web3 = require('web3');
+
+class AdvancedNLPModel {
+    constructor() {
+        this.tokenizer = new natural.WordTokenizer();
+        this.tfidf = new natural.TfIdf();
+
+        // Pre-defined keywords for each agent type
+        this.agentKeywords = {
+            'Manager': ['manage', 'coordinate', 'plan', 'organize'],
+            'Designer': ['design', 'create', 'conceptualize', 'artistic'],
+            'Developer': ['develop', 'code', 'program', 'implement'],
+            'Tester': ['test', 'quality', 'bug', 'verify'],
+            'Marketer': ['market', 'promote', 'analyze', 'strategy']
+        };
+
+        // Add agent keywords to TF-IDF
+        Object.entries(this.agentKeywords).forEach(([agentType, keywords]) => {
+            this.tfidf.addDocument(keywords.join(' '));
+        });
+    }
+
+    extractRequirements(prompt) {
+        const tokens = this.tokenizer.tokenize(prompt.toLowerCase());
+        const requirements = {};
+
+        Object.keys(this.agentKeywords).forEach(agentType => {
+            const score = this.tfidf.tfidf(tokens, agentType);
+            if (score > 0) {
+                requirements[agentType] = score;
+            }
+        });
+
+        return requirements;
+    }
+}
+
+class TeamPerformanceTracker {
+    constructor() {
+        this.teamPerformance = {};
+    }
+
+    updatePerformance(team, performanceScore) {
+        const teamKey = team.map(agent => agent.address).sort().join(',');
+        if (!this.teamPerformance[teamKey]) {
+            this.teamPerformance[teamKey] = [];
+        }
+        this.teamPerformance[teamKey].push(performanceScore);
+    }
+
+    getAveragePerformance(team) {
+        const teamKey = team.map(agent => agent.address).sort().join(',');
+        const performances = this.teamPerformance[teamKey];
+        if (!performances || performances.length === 0) return 0;
+        return performances.reduce((sum, score) => sum + score, 0) / performances.length;
+    }
+
+    suggestOptimizations(team) {
+        // In a real system, this would use more complex logic to suggest optimizations
+        // For this demo, we'll just return the team if its average performance is above 7/10
+        const averagePerformance = this.getAveragePerformance(team);
+        if (averagePerformance > 7) {
+            return team;
+        } else {
+            console.log("Team performance below threshold, optimization needed");
+            return team; // In a real system, we would suggest changes here
+        }
+    }
+}
+
+class AdvancedTeamFormationSystem {
+    constructor(web3, contractAddress) {
+        this.web3 = web3;
+        this.contract = new web3.eth.Contract(AgentRegistrationABI, contractAddress);
+        this.nlpModel = new AdvancedNLPModel();
+        this.teamPerformanceTracker = new TeamPerformanceTracker();
+    }
+
+    async formTeam(prompt) {
+        const requiredCapabilities = this.nlpModel.extractRequirements(prompt);
+        const availableAgents = await this.getAvailableAgents();
+        let team = this.selectTeamMembers(requiredCapabilities, availableAgents);
+        team = this.teamPerformanceTracker.suggestOptimizations(team);
+        return team;
+    }
+
+    async getAvailableAgents() {
+        const agentCount = await this.contract.methods.getAgentCount().call();
+        const agents = [];
+
+        for (let i = 0; i < agentCount; i++) {
+            const agentAddress = await this.contract.methods.agentList(i).call();
+            const agentDetails = await this.contract.methods.getAgentDetails(agentAddress).call();
+            if (agentDetails.isActive) {
+                agents.push(agentDetails);
+            }
+        }
+
+        return agents;
+    }
+
+    selectTeamMembers(requiredCapabilities, availableAgents) {
+        const team = [];
+
+        Object.entries(requiredCapabilities).forEach(([agentType, requiredScore]) => {
+            const typeAgents = availableAgents.filter(agent => agent.agentType === agentType);
+            typeAgents.sort((a, b) => b.reputationScore - a.reputationScore);
+
+            if (typeAgents.length > 0) {
+                team.push(typeAgents[0]);
+            }
+        });
+
+        return team;
+    }
+
+    allowUserAdjustments(team, userAdjustments) {
+        // In a real system, this would allow users to make changes to the suggested team
+        // For this demo, we'll just log the adjustments
+        console.log("User adjustments:", userAdjustments);
+        return team;
+    }
+}
+
+module.exports = AdvancedTeamFormationSystem;
