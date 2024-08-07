@@ -1,0 +1,64 @@
+const Web3 = require('web3');
+const AgentRegistrationABI = require('./abis/AgentRegistration.json');
+const TaskManagementABI = require('./abis/TaskManagement.json');
+const RewardDistributionABI = require('./abis/RewardDistribution.json');
+
+class BaseAgent {
+    constructor(privateKey, agentType, capabilities, config) {
+        this.web3 = new Web3(config.providerUrl);
+        this.account = this.web3.eth.accounts.privateKeyToAccount(privateKey);
+        this.web3.eth.accounts.wallet.add(this.account);
+
+        this.agentType = agentType;
+        this.capabilities = capabilities;
+
+        this.agentRegistrationContract = new this.web3.eth.Contract(AgentRegistrationABI, config.agentRegistrationAddress);
+        this.taskManagementContract = new this.web3.eth.Contract(TaskManagementABI, config.taskManagementAddress);
+        this.rewardDistributionContract = new this.web3.eth.Contract(RewardDistributionABI, config.rewardDistributionAddress);
+    }
+
+    async register() {
+        const tx = this.agentRegistrationContract.methods.registerAgent(this.agentType, this.capabilities);
+        const gas = await tx.estimateGas({from: this.account.address});
+        const result = await tx.send({from: this.account.address, gas});
+        console.log(`Agent registered: ${result.transactionHash}`);
+    }
+
+    async updateCapabilities(newCapabilities) {
+        const tx = this.agentRegistrationContract.methods.updateAgentCapabilities(newCapabilities);
+        const gas = await tx.estimateGas({from: this.account.address});
+        const result = await tx.send({from: this.account.address, gas});
+        console.log(`Capabilities updated: ${result.transactionHash}`);
+        this.capabilities = newCapabilities;
+    }
+
+    async getAssignedTasks() {
+        const taskCount = await this.taskManagementContract.methods.taskCounter().call();
+        const assignedTasks = [];
+
+        for (let i = 0; i < taskCount; i++) {
+            const task = await this.taskManagementContract.methods.tasks(i).call();
+            if (task.assignedAgents.includes(this.account.address)) {
+                assignedTasks.push(task);
+            }
+        }
+
+        return assignedTasks;
+    }
+
+    async updateTaskStatus(taskId, newStatus) {
+        const tx = this.taskManagementContract.methods.updateTaskStatus(taskId, newStatus);
+        const gas = await tx.estimateGas({from: this.account.address});
+        const result = await tx.send({from: this.account.address, gas});
+        console.log(`Task status updated: ${result.transactionHash}`);
+    }
+
+    async claimReward() {
+        const tx = this.rewardDistributionContract.methods.claimReward();
+        const gas = await tx.estimateGas({from: this.account.address});
+        const result = await tx.send({from: this.account.address, gas});
+        console.log(`Reward claimed: ${result.transactionHash}`);
+    }
+}
+
+module.exports = BaseAgent;
