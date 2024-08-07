@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+
+contract RewardDistribution is Initializable, OwnableUpgradeable {
+    IERC20Upgradeable public rewardToken;
+    mapping(address => uint256) public rewards;
+
+    event RewardsDistributed(address[] agents, uint256[] amounts);
+    event RewardClaimed(address indexed agent, uint256 amount);
+
+    function initialize(address _rewardToken) public initializer {
+        __Ownable_init();
+        rewardToken = IERC20Upgradeable(_rewardToken);
+    }
+
+    function distributeRewards(address[] memory _agents, uint256[] memory _amounts) public onlyOwner {
+        require(_agents.length == _amounts.length, "Arrays length mismatch");
+        
+        for (uint i = 0; i < _agents.length; i++) {
+            rewards[_agents[i]] += _amounts[i];
+        }
+        
+        emit RewardsDistributed(_agents, _amounts);
+    }
+
+    function claimReward() public {
+        uint256 amount = rewards[msg.sender];
+        require(amount > 0, "No rewards to claim");
+        
+        rewards[msg.sender] = 0;
+        require(rewardToken.transfer(msg.sender, amount), "Transfer failed");
+        
+        emit RewardClaimed(msg.sender, amount);
+    }
+}
